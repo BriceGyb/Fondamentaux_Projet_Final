@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
+  <title>HAR — Reconnaissance d'Activités</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      min-height: 100vh; color: #fff; padding: 20px;
+    }
+    .header {
+      text-align: center; padding: 20px 0 10px;
+    }
+    .header h1 { font-size: 1.4rem; color: #e0e0ff; letter-spacing: 1px; }
+    .header p  { font-size: 0.8rem; color: #8888aa; margin-top: 4px; }
+
+    .card {
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 20px; padding: 24px;
+      margin: 14px 0; backdrop-filter: blur(10px);
+    }
+
+    /* Résultat principal */
+    .result-emoji { font-size: 5rem; text-align: center; margin: 8px 0; }
+    .result-label {
+      font-size: 1.6rem; font-weight: 700;
+      text-align: center; color: #7eb8ff; letter-spacing: 2px;
+    }
+    .confidence {
+      text-align: center; font-size: 0.9rem;
+      color: #aaa; margin-top: 6px;
+    }
+    .conf-bar-bg {
+      background: rgba(255,255,255,0.1);
+      border-radius: 8px; height: 8px; margin: 10px 0;
+    }
+    .conf-bar {
+      height: 8px; border-radius: 8px;
+      background: linear-gradient(90deg, #4f8ef7, #a78bfa);
+      transition: width 0.4s ease;
+    }
+
+    /* Bouton */
+    .btn {
+      width: 100%; padding: 18px;
+      border: none; border-radius: 16px;
+      font-size: 1.1rem; font-weight: 700;
+      cursor: pointer; transition: all 0.2s;
+      letter-spacing: 1px;
+    }
+    .btn-start {
+      background: linear-gradient(135deg, #4f8ef7, #a78bfa);
+      color: white;
+    }
+    .btn-start:active { transform: scale(0.97); }
+    .btn-start:disabled {
+      background: #444; color: #888; cursor: not-allowed;
+    }
+
+    /* Status et countdown */
+    .status-bar {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px; border-radius: 12px;
+      background: rgba(255,255,255,0.05);
+      font-size: 0.85rem; color: #ccc;
+    }
+    .dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: #555; flex-shrink: 0;
+    }
+    .dot.active  { background: #4ade80; animation: pulse 1s infinite; }
+    .dot.waiting { background: #facc15; }
+    .dot.error   { background: #f87171; }
+    @keyframes pulse {
+      0%,100% { opacity: 1; } 50% { opacity: 0.3; }
+    }
+
+    /* Probabilités par classe */
+    .prob-title {
+      font-size: 0.75rem; color: #8888aa;
+      text-transform: uppercase; letter-spacing: 1px;
+      margin-bottom: 12px;
+    }
+    .prob-row {
+      display: flex; align-items: center;
+      gap: 8px; margin-bottom: 8px; font-size: 0.82rem;
+    }
+    .prob-icon { width: 20px; text-align: center; }
+    .prob-name { width: 150px; color: #ccc; font-size: 0.78rem; }
+    .prob-bg {
+      flex: 1; height: 6px; border-radius: 4px;
+      background: rgba(255,255,255,0.08);
+    }
+    .prob-fill {
+      height: 6px; border-radius: 4px;
+      background: linear-gradient(90deg, #4f8ef7, #a78bfa);
+      transition: width 0.5s ease;
+    }
+    .prob-val { width: 38px; text-align: right; color: #aaa; }
+
+    /* Capteurs live */
+    .sensor-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+    }
+    .sensor-box {
+      background: rgba(0,0,0,0.2); border-radius: 12px; padding: 10px;
+    }
+    .sensor-title {
+      font-size: 0.7rem; color: #7eb8ff;
+      text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;
+    }
+    .sensor-val { font-size: 0.78rem; color: #ddd; line-height: 1.6; }
+
+    .alert {
+      background: rgba(248,113,113,0.15);
+      border: 1px solid rgba(248,113,113,0.4);
+      border-radius: 12px; padding: 12px; font-size: 0.82rem;
+      color: #fca5a5; display: none;
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🧠 Reconnaissance d'Activités</h1>
+  <p>8INF867 — Mini-Projet 2.2 (Optionnel)</p>
+</div>
+
+<!-- Résultat -->
+<div class="card">
+  <div class="result-emoji" id="resultEmoji">❓</div>
+  <div class="result-label" id="resultLabel">EN ATTENTE</div>
+  <div class="confidence" id="confidenceText">—</div>
+  <div class="conf-bar-bg">
+    <div class="conf-bar" id="confBar" style="width:0%"></div>
+  </div>
+</div>
+
+<!-- Alerte permission -->
+<div class="alert" id="permAlert">
+  ⚠️ Accès aux capteurs refusé. Sur iOS : Réglages → Safari → Capteurs de mouvement → Autoriser.
+  Sur Android : ouvrir dans Chrome.
+</div>
+
+<!-- Bouton -->
+<div class="card">
+  <button class="btn btn-start" id="btnStart" onclick="startCapture()">
+    ▶ DÉMARRER LA CAPTURE (2.5s)
+  </button>
+  <div style="margin-top:14px">
+    <div class="status-bar">
+      <div class="dot" id="statusDot"></div>
+      <span id="statusText">Appuie sur le bouton pour analyser ton activité</span>
+    </div>
+  </div>
+</div>
+
+<!-- Probabilités -->
+<div class="card">
+  <div class="prob-title">Probabilités par activité</div>
+  <div id="probList">
+    <div style="color:#555;font-size:0.85rem;text-align:center;padding:10px">
+      Lance une capture pour voir les résultats
+    </div>
+  </div>
+</div>
+
+<!-- Debug -->
+<div class="card" id="debugBox" style="display:none">
+  <div class="prob-title">DEBUG — données brutes reçues</div>
+  <pre id="debugContent" style="font-size:0.72rem;color:#adf;line-height:1.5;white-space:pre-wrap"></pre>
+</div>
+
+<!-- Capteurs live -->
+<div class="card">
+  <div class="prob-title">Capteurs en temps réel</div>
+  <div class="sensor-grid">
+    <div class="sensor-box">
+      <div class="sensor-title">📱 Accéléromètre (m/s²)</div>
+      <div class="sensor-val" id="accVals">X: —<br>Y: —<br>Z: —</div>
+    </div>
+    <div class="sensor-box">
+      <div class="sensor-title">🌀 Gyroscope (rad/s)</div>
+      <div class="sensor-val" id="gyroVals">X: —<br>Y: —<br>Z: —</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let sensorData  = [];
+  let accX=0, accY=0, accZ=0, gyroX=0, gyroY=0, gyroZ=0;
+  let collecting  = false;
+  let sensorsON   = false;
+  const DURATION  = 2560;
+
+  function updateSensorDisplay() {
+    document.getElementById('accVals').innerHTML =
+      `X: ${accX.toFixed(3)}<br>Y: ${accY.toFixed(3)}<br>Z: ${accZ.toFixed(3)}`;
+    document.getElementById('gyroVals').innerHTML =
+      `X: ${gyroX.toFixed(3)}<br>Y: ${gyroY.toFixed(3)}<br>Z: ${gyroZ.toFixed(3)}`;
+  }
+
+  let eventCount = 0;
+
+  function onMotion(e) {
+    eventCount++;
+    const a = e.accelerationIncludingGravity || e.acceleration;
+    if (a && (a.x !== null)) {
+      accX = a.x||0; accY = a.y||0; accZ = a.z||0;
+    }
+    const r = e.rotationRate;
+    if (r && (r.alpha !== null)) {
+      gyroX = (r.alpha||0)*Math.PI/180;
+      gyroY = (r.beta ||0)*Math.PI/180;
+      gyroZ = (r.gamma||0)*Math.PI/180;
+    }
+    if (collecting) sensorData.push([accX, accY, accZ, gyroX, gyroY, gyroZ]);
+    updateSensorDisplay();
+  }
+
+  function startCapture() {
+    if (collecting) return;
+    setStatus('waiting', 'Demarrage...');
+    eventCount = 0;
+
+    if (typeof DeviceMotionEvent !== 'undefined' &&
+        typeof DeviceMotionEvent.requestPermission === 'function') {
+      DeviceMotionEvent.requestPermission().then(function(state) {
+        if (state === 'granted') { window.addEventListener('devicemotion', onMotion); doCapture(); }
+        else setStatus('error', 'Permission refusee iOS');
+      }).catch(function(err) { setStatus('error', 'Erreur: ' + err.message); });
+    } else {
+      window.addEventListener('devicemotion', onMotion);
+      doCapture();
+    }
+  }
+
+  function doCapture() {
+    sensorData = [];
+    collecting = true;
+    document.getElementById('btnStart').disabled = true;
+
+    let rem = DURATION / 1000;
+    const ticker = setInterval(() => {
+      rem -= 0.1;
+      setStatus('active', 'Capture ' + rem.toFixed(1) + 's — ' + sensorData.length + ' mesures');
+    }, 100);
+
+    setTimeout(() => {
+      clearInterval(ticker);
+      collecting = false;
+      window.removeEventListener('devicemotion', onMotion);
+      sendData();
+    }, DURATION);
+  }
+
+  async function sendData() {
+    setStatus('waiting', `Envoi de ${sensorData.length} mesures…`);
+    if (sensorData.length < 10) {
+      setStatus('error', 'Trop peu de données — capteurs non disponibles ?');
+      document.getElementById('btnStart').disabled = false;
+      return;
+    }
+    try {
+      const res = await fetch('/predict', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sensor_data: sensorData })
+      });
+      const json = await res.json();
+      displayResult(json);
+    } catch(err) {
+      setStatus('error', 'Erreur reseau - verifier que API tourne');
+    }
+    document.getElementById('btnStart').disabled = false;
+  }
+
+  // ── Affichage du résultat ───────────────────────────────────────────────────
+  function displayResult(data) {
+    if (data.error) { setStatus('error', data.error); return; }
+
+    document.getElementById('resultEmoji').textContent  = data.emoji;
+    document.getElementById('resultLabel').textContent  = data.activity;
+    document.getElementById('confidenceText').textContent =
+      `Confiance : ${data.confidence}%`;
+    document.getElementById('confBar').style.width = data.confidence + '%';
+
+    const list = document.getElementById('probList');
+    list.innerHTML = data.all_probs.map(p => `
+      <div class="prob-row">
+        <span class="prob-icon">${p.emoji}</span>
+        <span class="prob-name">${p.label}</span>
+        <div class="prob-bg">
+          <div class="prob-fill" style="width:${p.prob}%"></div>
+        </div>
+        <span class="prob-val">${p.prob}%</span>
+      </div>
+    `).join('');
+
+    setStatus('', `Dernière analyse : ${data.activity} (${data.confidence}%)`);
+    document.getElementById('statusDot').className = 'dot';
+
+    if (data.debug) {
+      const d = data.debug;
+      document.getElementById('debugBox').style.display = 'block';
+      document.getElementById('debugContent').textContent =
+        `n=${d.n_samples}\n` +
+        `AccX mean=${d.acc_x.mean} [${d.acc_x.min}, ${d.acc_x.max}]\n` +
+        `AccY mean=${d.acc_y.mean} [${d.acc_y.min}, ${d.acc_y.max}]\n` +
+        `AccZ mean=${d.acc_z.mean} [${d.acc_z.min}, ${d.acc_z.max}]\n` +
+        `GyrX mean=${d.gyr_x.mean} [${d.gyr_x.min}, ${d.gyr_x.max}]\n` +
+        `GyrY mean=${d.gyr_y.mean} [${d.gyr_y.min}, ${d.gyr_y.max}]\n` +
+        `GyrZ mean=${d.gyr_z.mean} [${d.gyr_z.min}, ${d.gyr_z.max}]\n` +
+        `1st: [${d.first_sample.join(', ')}]`;
+    }
+  }
+
+  function setStatus(type, msg) {
+    document.getElementById('statusDot').className = 'dot ' + type;
+    document.getElementById('statusText').textContent = msg;
+  }
+
+  // Pas d'init au chargement — tout démarre depuis le bouton (requis par iOS)
+</script>
+</body>
+</html>

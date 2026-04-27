@@ -1,0 +1,25 @@
+# Fichiers helper / scripts de génération
+update_analysis.py
+_fix_rapport.py
+_b64_tmp.json
+
+# Notebooks auxiliaires
+pmc_avec_keras_fashion_mnist.ipynb
+
+# Sujet original du cours
+mini_porjet_8INF867_H2026.pdf
+
+# Anciens modèles (remplacés par har_mobile_*)
+App_Mobile/har_model.keras
+App_Mobile/har_scaler.pkl
+
+# Dataset UCI HAR (lourd, téléchargeable publiquement)
+App_Mobile/UCI HAR Dataset/
+App_Mobile/__MACOSX/
+
+# Logs et fichiers temporaires
+App_Mobile/api_debug.log
+*.log
+__pycache__/
+*.pyc
+.DS_Store
