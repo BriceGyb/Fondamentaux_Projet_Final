@@ -4,6 +4,16 @@ Projet académique couvrant quatre grandes familles d'algorithmes d'apprentissag
 
 ---
 
+# 🎬 PRÉSENTATION VIDÉO DU PROJET
+
+## ⬇️ CLIQUEZ ICI POUR REGARDER LA PRÉSENTATION ⬇️
+
+[![REGARDER LA PRÉSENTATION VIDÉO](https://img.youtube.com/vi/LfVGydPyV4M/maxresdefault.jpg)](https://youtu.be/LfVGydPyV4M)
+
+### 👉 [https://youtu.be/LfVGydPyV4M](https://youtu.be/LfVGydPyV4M) 👈
+
+---
+
 ## Structure du Projet
 
 ```
